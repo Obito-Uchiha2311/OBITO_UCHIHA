@@ -6,6 +6,7 @@ const {
 
 const pino = require('pino');
 
+let pairingCodeRequested = false;
 let reconnecting = false;
 
 async function startBot() {
@@ -22,12 +23,41 @@ async function startBot() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', async (update) => {
+  // VINCULACIÓN CON WHATSAPP
+  if (!state.creds.registered && !pairingCodeRequested) {
+    const phoneNumber = process.env.PHONE_NUMBER;
+
+    if (!phoneNumber) {
+      console.log(
+        '⚠️ Falta configurar PHONE_NUMBER en las variables de entorno.'
+      );
+    } else {
+      pairingCodeRequested = true;
+
+      try {
+        const code = await sock.requestPairingCode(phoneNumber);
+
+        console.log('================================');
+        console.log('👁️ OBITO_UCHIHA');
+        console.log('📱 TU CÓDIGO DE VINCULACIÓN ES:');
+        console.log(code);
+        console.log('================================');
+      } catch (error) {
+        pairingCodeRequested = false;
+        console.error(
+          '❌ Error al generar el código:',
+          error.message
+        );
+      }
+    }
+  }
+
+  sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect } = update;
 
     if (connection === 'open') {
       reconnecting = false;
-      console.log('👁️ OBITO_UCHIHA conectado a WhatsApp');
+      console.log('✅ OBITO_UCHIHA conectado a WhatsApp.');
     }
 
     if (connection === 'close' && !reconnecting) {
@@ -36,7 +66,7 @@ async function startBot() {
 
       if (statusCode === DisconnectReason.loggedOut) {
         console.log(
-          '❌ Sesión cerrada. Debes volver a vincular WhatsApp.'
+          '❌ Sesión cerrada. Será necesario volver a vincular WhatsApp.'
         );
         return;
       }
@@ -74,9 +104,7 @@ async function startBot() {
           await sock.sendMessage(jid, {
             text: '¡Hola! 👁️🫀 Soy OBITO_UCHIHA.'
           });
-        }
-
-        else if (text === '.menu') {
+        } else if (text === '.menu') {
           await sock.sendMessage(jid, {
             text: `╭━━━〔 👁️ OBITO_UCHIHA 〕━━━╮
 ┃
@@ -90,18 +118,18 @@ async function startBot() {
 ┃    Salúdame.
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
-       🫀 ¡El mundo Shinobi te espera!`
+🫀 ¡El mundo Shinobi te espera!`
           });
-        }
-
-        else if (text === '.ping') {
+        } else if (text === '.ping') {
           await sock.sendMessage(jid, {
             text: '🏓 ¡Pong! OBITO_UCHIHA está activo. 👁️'
           });
         }
-
       } catch (error) {
-        console.error('Error al procesar mensaje:', error);
+        console.error(
+          'Error al procesar mensaje:',
+          error.message
+        );
       }
     }
   });
@@ -109,5 +137,4 @@ async function startBot() {
 
 startBot().catch((error) => {
   console.error('Error al iniciar OBITO_UCHIHA:', error);
-  process.exitCode = 1;
 });
