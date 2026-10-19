@@ -6,12 +6,11 @@ const {
 
 const pino = require('pino');
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
 let reconnecting = false;
 
 async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState('./session');
+  const { state, saveCreds } =
+    await useMultiFileAuthState('./session');
 
   const sock = makeWASocket({
     auth: state,
@@ -27,8 +26,8 @@ async function startBot() {
     const { connection, lastDisconnect } = update;
 
     if (connection === 'open') {
-      console.log('✅ OBITO_UCHIHA está conectado.');
       reconnecting = false;
+      console.log('👁️ OBITO_UCHIHA conectado a WhatsApp');
     }
 
     if (connection === 'close' && !reconnecting) {
@@ -36,16 +35,19 @@ async function startBot() {
         lastDisconnect?.error?.output?.statusCode;
 
       if (statusCode === DisconnectReason.loggedOut) {
-        console.log('❌ Sesión cerrada. Debes vincular WhatsApp de nuevo.');
+        console.log(
+          '❌ Sesión cerrada. Debes volver a vincular WhatsApp.'
+        );
         return;
       }
 
       reconnecting = true;
-      console.log('⚠️ Conexión perdida. Reconectando...');
+      console.log('🔄 Reconectando en 3 segundos...');
 
-      await sleep(3000);
-      reconnecting = false;
-      startBot().catch(console.error);
+      setTimeout(() => {
+        reconnecting = false;
+        startBot().catch(console.error);
+      }, 3000);
     }
   });
 
@@ -53,46 +55,59 @@ async function startBot() {
     if (type !== 'notify') return;
 
     for (const msg of messages) {
-      if (!msg.message || msg.key.fromMe) continue;
-      if (msg.key.remoteJid === 'status@broadcast') continue;
-
-      const from = msg.key.remoteJid;
-
-      const messageContent =
-        msg.message.conversation ||
-        msg.message.extendedTextMessage?.text ||
-        msg.message.imageMessage?.caption ||
-        msg.message.videoMessage?.caption ||
-        '';
-
-      const text = messageContent.trim().toLowerCase();
-
       try {
+        if (!msg.message || msg.key.fromMe) continue;
+        if (msg.key.remoteJid === 'status@broadcast') continue;
+
+        const jid = msg.key.remoteJid;
+
+        const content =
+          msg.message.conversation ||
+          msg.message.extendedTextMessage?.text ||
+          msg.message.imageMessage?.caption ||
+          msg.message.videoMessage?.caption ||
+          '';
+
+        const text = content.trim().toLowerCase();
+
         if (text === 'hola') {
-          await sock.sendMessage(from, {
-            text: '¡Hola! Soy OBITO_UCHIHA 👁️🫀'
-          });
-        } else if (text === '.menu') {
-          await sock.sendMessage(from, {
-            text:
-              '╭━━━『 OBITO_UCHIHA 👁️🫀 』━━━╮\n' +
-              '┃ .menu — Ver comandos\n' +
-              '┃ .ping — Comprobar el bot\n' +
-              '╰━━━━━━━━━━━━━━━━━━━━╯'
-          });
-        } else if (text === '.ping') {
-          await sock.sendMessage(from, {
-            text: 'Pong! 🌀 OBITO_UCHIHA está activo.'
+          await sock.sendMessage(jid, {
+            text: '¡Hola! 👁️🫀 Soy OBITO_UCHIHA.'
           });
         }
+
+        else if (text === '.menu') {
+          await sock.sendMessage(jid, {
+            text: `╭━━━〔 👁️ OBITO_UCHIHA 〕━━━╮
+┃
+┃ 🌀 .menu
+┃    Muestra este menú.
+┃
+┃ ⚡ .ping
+┃    Comprueba si estoy activo.
+┃
+┃ 💬 hola
+┃    Salúdame.
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━╯
+       🫀 ¡El mundo Shinobi te espera!`
+          });
+        }
+
+        else if (text === '.ping') {
+          await sock.sendMessage(jid, {
+            text: '🏓 ¡Pong! OBITO_UCHIHA está activo. 👁️'
+          });
+        }
+
       } catch (error) {
-        console.error('Error al responder:', error);
+        console.error('Error al procesar mensaje:', error);
       }
     }
   });
 }
 
-startBot().catch(error => {
+startBot().catch((error) => {
   console.error('Error al iniciar OBITO_UCHIHA:', error);
   process.exitCode = 1;
 });
